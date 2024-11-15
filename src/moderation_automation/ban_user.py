@@ -55,6 +55,7 @@ class RedditBan:
                     note="Autoban for Multiple remove",
                     ban_message=self._ban_message(
                         row["username"],
+                        row["n_ban"],
                     ),
                 )
         self._conn.commit()
