@@ -42,10 +42,10 @@ class RedditBan:
             LOGGER.debug("Candidate %s", row)
             mod_val = (float(row["mod_count"]) ** 2 + row["mod_count_post"] ** 2) / (
                 2 * row["mod_count"]
-            )  # (a^2 + b^2)/(2 a)
+            ) if  row["mod_count"] > 0 else 0  # (a^2 + b^2)/(2 a)
             reddit_val = (row["reddit_count"] ** 2 + row["reddit_count_post"] ** 2) / (
                 2 * row["reddit_count"]
-            )  # (a^2 + b^2)/(2 a)
+            ) if  row["reddit_count"] > 0 else 0 # (a^2 + b^2)/(2 a)
             LOGGER.debug("Check %s = %f", row["username"], mod_val + reddit_val)
             if mod_val + reddit_val >= 4:
                 LOGGER.info("Banning %s", row["username"])
