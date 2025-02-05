@@ -1,8 +1,8 @@
 import logging
-from pathlib import Path
 import sqlite3
 from argparse import ArgumentParser as ArgParser
-from datetime import datetime, UTC
+from datetime import UTC, datetime
+from pathlib import Path
 
 import praw
 
@@ -64,9 +64,9 @@ class RedditBan:
     def _duration(self, nban: int) -> int | None:
         if nban == 0:
             return 7
-        if nban >= 2:
-            return None
-        return 28
+        if nban == 1:
+            return 28
+        return None
 
     def _ban_message(self, username: str, nban: int) -> str:
         txt = (
@@ -81,10 +81,10 @@ class RedditBan:
                 txt += " (rimosso dagli amministratori di Reddit)"
             txt += "\n"
         if nban > 0:
-            if nban >= 2:
-                txt += f"\n\nQuesto è il tuo {nban+1} ban, quindi il provvedimento è definitivo."
-            else:
+            if nban == 1:
                 txt += f"\n\nATTENZIONE: Questo è il tuo ban numero {nban+1}."
+            else:
+                txt += f"\n\nQuesto è il tuo ban numero {nban+1}, quindi il provvedimento è definitivo."
         return txt
 
 

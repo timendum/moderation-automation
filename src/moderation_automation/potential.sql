@@ -11,7 +11,7 @@ with users as
 select
    u.username,
    date(min(b.created_utc), 'unixepoch') as last_ban,
-   count(b.created_utc) as n_ban,
+   count(distinct b.created_utc) as n_ban,
    count(distinct m.target) as mod_count,
    count(distinct m.post) as mod_count_post,
    count(distinct r.target) as reddit_count,
@@ -27,8 +27,12 @@ from users as u
    left join mod_removed as m 
       on m.username = u.username 
       and m.created_utc > max(unixepoch('now', '-50 days'), coalesce(b.created_utc, 0)) 
-      and not exists 
-        (select id from reddit_removed where reddit_removed.username = m.username and reddit_removed.target = m.target)
+      and not exists (
+         select id
+         from reddit_removed
+         where reddit_removed.username = m.username
+            and reddit_removed.target = m.target
+      )
 group by u.username 
 having
    count(distinct m.target) + count(distinct r.target) > 3;
