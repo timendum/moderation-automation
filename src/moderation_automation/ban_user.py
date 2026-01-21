@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import praw
+from praw.exceptions import RedditAPIException
 
 LOGGER = logging.getLogger(__file__)
 
@@ -22,7 +23,7 @@ class RedditBan:
     def init_db(self) -> sqlite3.Connection:
         conn = sqlite3.connect(f"{self.subreddit}.db")
 
-        def dict_factory(cursor: sqlite3.Connection, row: sqlite3.Row):
+        def dict_factory(cursor: sqlite3.Cursor, row: sqlite3.Row):
             fields = [column[0] for column in cursor.description]
             return {key: value for key, value in zip(fields, row, strict=True)}
 
@@ -40,24 +41,47 @@ class RedditBan:
         rows = self._conn.execute(query)
         for row in rows:
             LOGGER.debug("Candidate %s", row)
-            mod_val = (float(row["mod_count"]) ** 2 + row["mod_count_post"] ** 2) / (
-                2 * row["mod_count"]
-            ) if  row["mod_count"] > 0 else 0  # (a^2 + b^2)/(2 a)
-            reddit_val = (row["reddit_count"] ** 2 + row["reddit_count_post"] ** 2) / (
-                2 * row["reddit_count"]
-            ) if  row["reddit_count"] > 0 else 0 # (a^2 + b^2)/(2 a)
+            mod_val = (
+                (float(row["mod_count"]) ** 2 + row["mod_count_post"] ** 2) / (2 * row["mod_count"])
+                if row["mod_count"] > 0
+                else 0
+            )  # (a^2 + b^2)/(2 a)
+            reddit_val = (
+                (row["reddit_count"] ** 2 + row["reddit_count_post"] ** 2)
+                / (2 * row["reddit_count"])
+                if row["reddit_count"] > 0
+                else 0
+            )  # (a^2 + b^2)/(2 a)
             LOGGER.debug("Check %s = %f", row["username"], mod_val + reddit_val)
             if mod_val + reddit_val >= 4:
                 LOGGER.info("Banning %s", row["username"])
-                self._sub.banned.add(
-                    row["username"],
-                    duration=self._duration(row["n_ban"]),
-                    note="Autoban for Multiple remove",
-                    ban_message=self._ban_message(
+                try:
+                    self._sub.banned.add(
                         row["username"],
-                        row["n_ban"],
-                    ),
-                )
+                        duration=self._duration(row["n_ban"]),
+                        note="Autoban for Multiple remove",
+                        ban_message=self._ban_message(
+                            row["username"],
+                            row["n_ban"],
+                        ),
+                    )
+                except RedditAPIException as e:
+                    if e.items and len(e.items) == 0:
+                        api_e = e.items[0]
+                        if api_e.error_type == "USER_DOESNT_EXIST":
+                            LOGGER.warning("User %s does not exist", row["username"])
+                            self._conn.execute(
+                                "insert or replace into banned values (?,?,?,?)",
+                                (
+                                    datetime.now().timestamp(),
+                                    row["username"],
+                                    api_e.error_type,
+                                    1,
+                                ),
+                            )
+                            continue
+                        print("Exception banning ", row["username"], " : ", e.error_type)
+                    raise e
         self._conn.commit()
         self._conn.close()
 
@@ -76,15 +100,18 @@ class RedditBan:
         query = self._get_query("removed_comments.sql")
         for row in self._conn.execute(query, (username, username)):
             timestamp = datetime.fromtimestamp(row["created_utc"], UTC).strftime("%H:%M del %d/%m")
-            txt += f"- [commento alle {timestamp}](/r/{self.subreddit}/comments/{row["post_id"][3:]}/_/{row["comment_id"][3:]})"
+            txt += (
+                f"- [commento alle {timestamp}]"
+                f"(/r/{self.subreddit}/comments/{row['post_id'][3:]}/_/{row['comment_id'][3:]})"
+            )
             if row["reddit"] and row["reddit"] == "1":
                 txt += " (rimosso dagli amministratori di Reddit)"
             txt += "\n"
         if nban > 0:
             if nban == 1:
-                txt += f"\n\nATTENZIONE: Questo è il tuo ban numero {nban+1}."
+                txt += f"\n\nATTENZIONE: Questo è il tuo ban numero {nban + 1}."
             else:
-                txt += f"\n\nQuesto è il tuo ban numero {nban+1}, quindi il provvedimento è definitivo."
+                txt += f"\n\nQuesto è il tuo ban numero {nban + 1}, quindi il provvedimento è definitivo."
         return txt
 
 
