@@ -2,15 +2,20 @@
 --.header on
 with users as 
 (
-   select distinct username as username 
-   from mod_removed 
+   select
+      m.username as username,
+      coalesce(max(b.created_utc), 0) as last_ban
+   from mod_removed as m
+   left join banned as b 
+      on m.username = b.username
    where
-      created_utc > unixepoch('now', '-30 days') 
-      and username != "[deleted]" 
+      m.created_utc > unixepoch('now', '-30 days') 
+      and m.username != "[deleted]" 
+   group by m.username
 )
 select
    u.username,
-   date(max(b.created_utc), 'unixepoch') as last_ban,
+   u.last_ban,
    count(distinct b.created_utc) as n_ban,
    count(distinct m.target) as mod_count,
    count(distinct m.post) as mod_count_post,
@@ -23,10 +28,10 @@ from users as u
       on b.username = u.username
    left join reddit_removed as r 
       on r.username = u.username 
-      and r.created_utc > max(unixepoch('now', '-50 days'), coalesce(b.created_utc, 0)) 
+      and r.created_utc > max(unixepoch('now', '-50 days'), last_ban) 
    left join mod_removed as m 
       on m.username = u.username 
-      and m.created_utc > max(unixepoch('now', '-50 days'), coalesce(b.created_utc, 0)) 
+      and m.created_utc > max(unixepoch('now', '-50 days'), last_ban) 
       and not exists (
          select id
          from reddit_removed
