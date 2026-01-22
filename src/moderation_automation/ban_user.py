@@ -1,7 +1,7 @@
 import logging
 import sqlite3
 from argparse import ArgumentParser as ArgParser
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import praw
@@ -76,7 +76,7 @@ class RedditBan:
                                     datetime.now().timestamp(),
                                     row["username"],
                                     api_e.error_type,
-                                    1,
+                                    (datetime.now() - timedelta(days=7)).timestamp(),
                                 ),
                             )
                             continue
