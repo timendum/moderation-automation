@@ -66,7 +66,7 @@ class RedditBan:
                         ),
                     )
                 except RedditAPIException as e:
-                    if e.items and len(e.items) == 0:
+                    if e.items and len(e.items) == 1:
                         api_e = e.items[0]
                         if api_e.error_type == "USER_DOESNT_EXIST":
                             LOGGER.warning("User %s does not exist", row["username"])
