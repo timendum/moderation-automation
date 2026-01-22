@@ -76,7 +76,7 @@ class RedditBan:
                                     datetime.now().timestamp(),
                                     row["username"],
                                     api_e.error_type,
-                                    (datetime.now() - timedelta(days=7)).timestamp(),
+                                    int((datetime.now() - timedelta(days=7)).timestamp()),
                                 ),
                             )
                             continue
