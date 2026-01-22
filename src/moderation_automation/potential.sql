@@ -10,7 +10,7 @@ with users as
 )
 select
    u.username,
-   date(min(b.created_utc), 'unixepoch') as last_ban,
+   date(max(b.created_utc), 'unixepoch') as last_ban,
    count(distinct b.created_utc) as n_ban,
    count(distinct m.target) as mod_count,
    count(distinct m.post) as mod_count_post,
